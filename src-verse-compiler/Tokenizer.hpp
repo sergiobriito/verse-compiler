@@ -34,8 +34,6 @@ enum class TokenType {
     FOR = 25,
     WHILE = 26,
     PRINT = 27,
-    ADD = 28,
-    SUB = 29,
     INCVALUE = 30,
     DECVALUE = 31
 };
@@ -142,20 +140,10 @@ public:
                 tokens.push_back({.type = TokenType::CLOSSQUAR});
             } else if (peek().value() == '+') {
                 consume();
-                if (peek().value() == '+') {
-                    consume();
-                    tokens.push_back({.value = "++" , .type = TokenType::ADD});
-                } else {
-                    tokens.push_back({.value = "+" , .type = TokenType::PLUS});
-                };
+                tokens.push_back({.value = "+" , .type = TokenType::PLUS});  
             } else if (peek().value() == '-') {
                 consume();
-                if (peek().value() == '-') {
-                    consume();
-                    tokens.push_back({.value = "--" , .type = TokenType::SUB});
-                } else {
-                    tokens.push_back({.value = "-" , .type = TokenType::MINUS});
-                };
+                tokens.push_back({.value = "-" , .type = TokenType::MINUS});
             } else if (peek().value() == '*') {
                 consume();
                 tokens.push_back({.value = "*", .type = TokenType::STAR});

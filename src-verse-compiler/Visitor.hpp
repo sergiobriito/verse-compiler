@@ -11,9 +11,6 @@ struct AssignmentNode;
 struct ComparisonNode;
 struct IfStatementNode;
 struct ForLoopNode;
-struct WhileLoopNode;
-struct FunctionCallNode;
-struct FunctionDeclarationNode;
 struct PrintNode;
 struct IncrementNode;
 
@@ -29,9 +26,6 @@ public:
     virtual void visit(ComparisonNode* node) = 0;
     virtual void visit(IfStatementNode* node) = 0;
     virtual void visit(ForLoopNode* node) = 0;
-    virtual void visit(WhileLoopNode* node) = 0;
-    virtual void visit(FunctionCallNode* node) = 0;
-    virtual void visit(FunctionDeclarationNode* node) = 0;
     virtual void visit(PrintNode* node) = 0;
     virtual void visit(IncrementNode* node) = 0;
 };

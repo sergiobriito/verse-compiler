@@ -146,39 +146,6 @@ struct ForLoopNode : AstNode {
     }
 };
 
-struct WhileLoopNode : AstNode {
-    AstNode *condition{};
-    AstNode *body{};
-
-    void accept(Visitor* visitor) override {
-        visitor->visit(this);
-    }
-
-};
-
-struct FunctionCallNode : AstNode {
-    IdentifierNode *functionName{};
-    std::vector<AstNode *> arguments{};
-
-    FunctionCallNode(IdentifierNode *functionName,
-                     std::vector<AstNode *> arguments)
-            : functionName(functionName), arguments(std::move(arguments)) {};
-
-    void accept(Visitor* visitor) override {
-        visitor->visit(this);
-    }
-};
-
-struct FunctionDeclarationNode : AstNode {
-    IdentifierNode *functionName{};
-    std::vector<IdentifierNode *> parameters{};
-    AstNode *body;
-
-    void accept(Visitor* visitor) override {
-        visitor->visit(this);
-    }
-};
-
 struct PrintNode : AstNode {
     AstNode* identifier;
 
@@ -265,12 +232,7 @@ public:
             return parseDeclaration();
         } else if (peek().value().type == TokenType::IDENT) {
             Token identifier = consume();
-            if (peek().has_value() && peek().value().type == TokenType::OPENPAR) {
-                consume();
-                return parseFunctionCall(identifier);
-            } else {
-                return parseAssignment(identifier);
-            }
+            return parseAssignment(identifier);
         } else if (peek().value().type == TokenType::IF) {
             consume();
             return parseIfStatement();
@@ -374,12 +336,7 @@ public:
             }
         } else if (peek().value().type == TokenType::IDENT) {
             Token name = consume();
-            if (peek().value().type == TokenType::OPENPAR) {
-                consume();
-                return parseFunctionCall(name);
-            } else {
-                return new IdentifierNode(name.value);
-            }
+            return new IdentifierNode(name.value);
         } else if (peek().value().type == TokenType::OPENPAR) {
             consume();
             AstNode *expression = parseExpression();
@@ -603,32 +560,6 @@ public:
         return new ForLoopNode(initialization,condition, incrementNode,body);
     };
 
-    AstNode *parseFunctionCall(Token id) {
-        std::vector<AstNode *> arguments;
-        while (peek().value().type != TokenType::CLOSPAR) {
-            AstNode *argument = parseExpression();
-            if (!argument) {
-                std::cerr << "Invalid function call argument" << std::endl;
-                exit(EXIT_FAILURE);
-            }
-            arguments.push_back(argument);
-            if (peek().value().type == TokenType::COMMA) {
-                consume();
-            } else if (peek().value().type != TokenType::CLOSPAR) {
-                std::cerr << "Expected ')' in function call" << std::endl;
-                exit(EXIT_FAILURE);
-            }
-        }
-        consume();
-
-        if (!peek().has_value() || peek().value().type != TokenType::SEMI_COL) {
-            std::cerr << "Expected ';' in function call" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-        consume();
-
-        return new FunctionCallNode(new IdentifierNode(id.value), arguments);
-    }
 
 };
 

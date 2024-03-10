@@ -333,9 +333,5 @@ public:
         labelBuffer.clear();
     }
 
-    void visit(WhileLoopNode* node) override {}
-    void visit(FunctionCallNode* node) override {}
-    void visit(FunctionDeclarationNode* node) override {}
-
 };
 
