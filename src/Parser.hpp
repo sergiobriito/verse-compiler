@@ -300,7 +300,7 @@ public:
                peek().has_value() && peek().value().type == TokenType::MINUS) {
             Token operatorToken = consume();
             AstNode *right = parseTerm();
-            left = new BinaryOpNode(operatorToken.value, left, right);
+            left = new BinaryOpNode(operatorToken.value, right, left);
         }
         return left;
     };

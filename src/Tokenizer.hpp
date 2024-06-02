@@ -159,7 +159,7 @@ public:
                     consume();
                     tokens.push_back({.value = "==", .type = TokenType::EQEQ});
                 } else {
-                    tokens.push_back({.value = "==", .type = TokenType::EQ});
+                    tokens.push_back({.value = "=", .type = TokenType::EQ});
                 };
             } else if (peek().value() == '>') {
                 consume();

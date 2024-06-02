@@ -31,14 +31,12 @@ You need the following tools installed on your system:
     ```
   - Installation of C++ 32-bit libs:
     ```
-    sudo dpkg --add-architecture i386
-    sudo apt-get install g++:i386
+    sudo apt install g++-multilib
     ```
     
 - NASM (Netwide Assembler):
   - Linux:
     ```
-    sudo apt-get update
     sudo apt-get install nasm
     ```
 
@@ -47,6 +45,7 @@ You need the following tools installed on your system:
 1. Clone this repository:
 ```
 git clone https://github.com/sergiobriito/verse-compiler.git
+cd verse-compiler
 ```
 1. Build the compiler:
 ```
@@ -56,21 +55,20 @@ The executable verse-compiler will be generated in the build directory.
 
 ## Usage
 To compile a Verse code file (code.vs) and generate the assembly output:
-```
-make run
-```
+
 This will generate an output file named out.asm containing the 32-bit x86 assembly code.
 
 To compile the out.asm code file and generate the output:
 ```
+chmod 700 ./nasm-script.sh
 ./nasm-script.sh
 ```
 ## Examples of Verse Language
 
 - Declaration of variable:
 ```
-let i = 100;
-let name = "sergio";
+let n = 100;
+let compilerName = "versecompiler";
 ```
 
 - For loop:
@@ -83,8 +81,8 @@ print(i);
 
 - If:
 ```
-let i = 100;
-if (i>100){
-print(i);
+let k = 100;
+if (k > 99){
+print(k);
 };
 ```

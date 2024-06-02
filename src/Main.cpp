@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
 
     Tokenizer tokenizer(source);
     std::vector<Token> tokens = tokenizer.tokenize();
-
+    
     Parser parser(tokens);
     AstNode* AST = parser.parseProgram();
 
