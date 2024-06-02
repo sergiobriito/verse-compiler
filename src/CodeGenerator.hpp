@@ -206,7 +206,7 @@ public:
         };
 
         if (!stack.empty()){
-            file << "mov byte [" << node->identifier->name << "]," << stack.top() << std::endl;
+            file << "mov dword [" << node->identifier->name << "]," << stack.top() << std::endl;
             stack.pop();
         }else{
             std::cerr << "Cant reassign String" << std::endl;
@@ -308,9 +308,9 @@ public:
         std::string id = buffer;
         buffer.clear();
         if (node->value == "++"){
-            file << "add byte ["<< id << "], 1" << std::endl;
+            file << "add dword ["<< id << "], 1" << std::endl;
         }else{
-            file << "sub byte ["<< id << "], 1" << std::endl;
+            file << "sub dword ["<< id << "], 1" << std::endl;
         };
     }
 

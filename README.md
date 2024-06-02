@@ -54,16 +54,12 @@ make
 The executable verse-compiler will be generated in the build directory.
 
 ## Usage
-To compile a Verse code file (code.vs) and generate the assembly output:
-
-This will generate an output file named out.asm containing the 32-bit x86 assembly code.
-
-To compile the out.asm code file and generate the output:
+To compile a Verse code file (example.vs):
 ```
-chmod 700 ./nasm-script.sh
-./nasm-script.sh
+chmod 700 ./run.sh
+./run.sh
 ```
-## Examples of Verse Language
+## Examples
 
 - Declaration of variable:
 ```
@@ -74,7 +70,7 @@ let compilerName = "versecompiler";
 - For loop:
 ```
 let i;
-for (i=0;i<10;i++){
+for (i=0;i<100;i++){
 print(i);
 };
 ```
