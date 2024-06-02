@@ -23,21 +23,13 @@ features, including variable declaration, assignment, arithmetic operations, con
 
 You need the following tools installed on your system:
 
-- C++ Compiler (e.g., g++):
+- C++ Compiler (e.g., g++) and NASM (Netwide Assembler):
   - Linux:
     ```
-    sudo apt-get update
-    sudo apt-get install g++
-    ```
-  - Installation of C++ 32-bit libs:
-    ```
+    sudo apt update
+    sudo apt install g++
     sudo apt install g++-multilib
-    ```
-    
-- NASM (Netwide Assembler):
-  - Linux:
-    ```
-    sudo apt-get install nasm
+    sudo apt install nasm
     ```
 
 ## Installation
@@ -51,13 +43,13 @@ cd verse-compiler
 ```
 make 
 ```
-The executable verse-compiler will be generated in the build directory.
+The executable versec will be generated in the build directory.
 
 ## Usage
 To compile a Verse code file (example.vs):
 ```
 chmod 700 ./run.sh
-./run.sh
+./run.sh example.vs
 ```
 ## Examples
 
