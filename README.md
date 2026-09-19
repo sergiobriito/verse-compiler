@@ -80,25 +80,3 @@ Expected output:
 ```text
 55
 ```
-
-## More Examples
-
-Each focused example can be run with the same helper script:
-
-```bash
-./run.sh examples/factorial.vs
-```
-
-- [factorial.vs](examples/factorial.vs): recursion with a base case
-- [loops.vs](examples/loops.vs): `for` loops and loop-local variables
-- [conditions.vs](examples/conditions.vs): comparisons and `if`/`else`
-- [strings.vs](examples/strings.vs): string declarations and printing
-
-The compiler evaluates integer function calls while compiling, so recursive
-examples produce ordinary constant data in the generated assembly.
-
-The focused factorial example prints:
-
-```text
-120
-```
