@@ -16,6 +16,7 @@ The compiler design notes are available in the
 - `if`/`else` statements
 - `for` loops with `++` and `--`
 - Printing variables with `print(...)`
+- Integer arrays with indexed reads
 - Integer functions with parameters, `return`, and recursive calls
 - Variables declared inside a `for` or `if` block are scoped to that block
 
@@ -80,3 +81,45 @@ Expected output:
 ```text
 55
 ```
+
+## Dynamic Programming Example
+
+[examples/fibonacci-dp.vs](examples/fibonacci-dp.vs) computes Fibonacci
+iteratively with rolling state. It uses $O(n)$ time and $O(1)$ space without
+recursion or array element assignment.
+
+```bash
+./run.sh examples/fibonacci-dp.vs
+```
+
+Expected output:
+
+```text
+55
+```
+
+## Arrays
+
+Arrays contain integers and use zero-based indexing:
+
+```verse
+let values = [10, 20, 30];
+let index = 1;
+print(values[index]);
+```
+
+Run the focused example with:
+
+```bash
+./run.sh examples/arrays.vs
+```
+
+Expected output:
+
+```text
+20
+```
+
+Array indexes must be valid integers. Out-of-bounds access is reported by the
+compiler. Array values are currently compile-time data; array element
+assignment and arrays of strings are not supported yet.

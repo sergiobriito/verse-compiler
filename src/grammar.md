@@ -2,11 +2,13 @@
 
 - `program` ::= `statement*`
 - `statement` ::= `declaration` | `assignment` | `conditional` | `for_loop` | `print` | `function` | `return`
-- `declaration` ::= "`let`" `identifier` "`;`" | "`let`" `identifier`  "=" `expression` "`;`"
+- `declaration` ::= "`let`" `identifier` "`;`" | "`let`" `identifier`  "=" (`expression` | `array`) "`;`"
 - `assignment` ::= `identifier` "`=`" (`expression` | `string`) "`;`"
 - `expression` ::= `term` `(("+" | "-") term)*`
 - `term` ::= `factor` `(("*" | "/") factor)*`
-- `factor` ::= `identifier` | `number` | `string` | "`(`" `expression` "`)`"
+- `factor` ::= `identifier` | `number` | `string` | `call` | `index` | "`(`" `expression` "`)`"
+- `array` ::= "`[`" (`expression` ("`,`" `expression`)*)? "`]`"
+- `index` ::= `identifier` "`[`" `expression` "`]`"
 - `conditional` ::= `if_statement` | `if_else_statement`
 - `for_loop` ::= "`for`" "`(`" `assignment` `expression` "`;`" `assignment` "`)`" "`{`" `statement*` "`}`"
 - `if_statement` ::= "`if`" "`(`" `comparison` "`)`" "`{`" `statement*` "`}`"

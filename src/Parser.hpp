@@ -191,6 +191,27 @@ struct ReturnNode : AstNode {
     }
 };
 
+struct ArrayNode : AstNode {
+    std::vector<AstNode *> values;
+
+    explicit ArrayNode(std::vector<AstNode *> values) : values(std::move(values)) {}
+
+    void accept(Visitor* visitor) override {
+        visitor->visit(this);
+    }
+};
+
+struct IndexNode : AstNode {
+    AstNode *array;
+    AstNode *index;
+
+    IndexNode(AstNode *array, AstNode *index) : array(array), index(index) {}
+
+    void accept(Visitor* visitor) override {
+        visitor->visit(this);
+    }
+};
+
 class Parser {
 private:
     std::vector<Token> tokens;
@@ -392,9 +413,47 @@ public:
                     exit(EXIT_FAILURE);
                 }
                 consume();
-                return new CallNode(name.value, arguments);
+                AstNode *call = new CallNode(name.value, arguments);
+                if (peek().has_value() && peek().value().type == TokenType::OPENSQUAR) {
+                    consume();
+                    AstNode *index = parseExpression();
+                    if (!peek().has_value() || peek().value().type != TokenType::CLOSSQUAR) {
+                        std::cerr << "Expected ']' after index" << std::endl;
+                        exit(EXIT_FAILURE);
+                    }
+                    consume();
+                    return new IndexNode(call, index);
+                }
+                return call;
             }
-            return new IdentifierNode(name.value);
+            AstNode *identifier = new IdentifierNode(name.value);
+            if (peek().has_value() && peek().value().type == TokenType::OPENSQUAR) {
+                consume();
+                AstNode *index = parseExpression();
+                if (!peek().has_value() || peek().value().type != TokenType::CLOSSQUAR) {
+                    std::cerr << "Expected ']' after index" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                consume();
+                return new IndexNode(identifier, index);
+            }
+            return identifier;
+        } else if (peek().value().type == TokenType::OPENSQUAR) {
+            consume();
+            std::vector<AstNode *> values;
+            if (peek().has_value() && peek().value().type != TokenType::CLOSSQUAR) {
+                values.push_back(parseExpression());
+                while (peek().has_value() && peek().value().type == TokenType::COMMA) {
+                    consume();
+                    values.push_back(parseExpression());
+                }
+            }
+            if (!peek().has_value() || peek().value().type != TokenType::CLOSSQUAR) {
+                std::cerr << "Expected ']' after array literal" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume();
+            return new ArrayNode(values);
         } else if (peek().value().type == TokenType::OPENPAR) {
             consume();
             AstNode *expression = parseExpression();
@@ -528,12 +587,7 @@ public:
         }
         consume();
 
-        if (!peek().has_value() || peek().value().type != TokenType::IDENT) {
-            std::cerr << "Expected an identifier" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-        IdentifierNode *identifierNode = new IdentifierNode(consume().value);
+        AstNode *expression = parseExpression();
 
         if (!peek().has_value() || peek().value().type != TokenType::CLOSPAR) {
             std::cerr << "Expected ')'" << std::endl;
@@ -547,7 +601,7 @@ public:
         }
         consume();
 
-        return new PrintNode(identifierNode);
+        return new PrintNode(expression);
     };
 
     AstNode *parseReturnStatement() {

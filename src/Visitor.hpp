@@ -16,6 +16,8 @@ struct IncrementNode;
 struct FunctionNode;
 struct CallNode;
 struct ReturnNode;
+struct ArrayNode;
+struct IndexNode;
 
 class Visitor {
 public:
@@ -34,6 +36,8 @@ public:
     virtual void visit(FunctionNode* node) = 0;
     virtual void visit(CallNode* node) = 0;
     virtual void visit(ReturnNode* node) = 0;
+    virtual void visit(ArrayNode* node) = 0;
+    virtual void visit(IndexNode* node) = 0;
 };
 
 #endif

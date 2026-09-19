@@ -11,6 +11,7 @@
 class CodeGenerator : public Visitor {
 private:
     std::map<std::string, std::string> variables;
+    std::map<std::string, std::vector<int>> arrayVariables;
     std::map<std::string, FunctionNode *> functions;
     std::set<std::string> stringVariables;
     std::vector<std::set<std::string>> scopes;
@@ -85,6 +86,20 @@ private:
                 arguments.push_back(evaluateExpression(argument, environment));
             }
             return evaluateFunction(call->name, arguments);
+        }
+        if (auto index = dynamic_cast<IndexNode *>(node)) {
+            auto identifier = dynamic_cast<IdentifierNode *>(index->array);
+            if (!identifier || arrayVariables.find(identifier->name) == arrayVariables.end()) {
+                std::cerr << "Expected an array before index" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            int position = evaluateExpression(index->index, environment);
+            const std::vector<int>& values = arrayVariables.at(identifier->name);
+            if (position < 0 || static_cast<size_t>(position) >= values.size()) {
+                std::cerr << "Array index out of bounds" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            return values[position];
         }
 
         std::cerr << "Unsupported expression in function" << std::endl;
@@ -238,6 +253,16 @@ public:
 
             }
         }
+        for (const auto& array : arrayVariables) {
+            file << array.first << " dd ";
+            for (size_t index = 0; index < array.second.size(); ++index) {
+                if (index != 0) {
+                    file << ", ";
+                }
+                file << array.second[index];
+            }
+            file << std::endl;
+        }
         file << "fmt db \"%d\", 10, 0" << std::endl;
     }
 
@@ -324,9 +349,61 @@ public:
     }
 
     void visit(PrintNode* node) override {
+        if (auto index = dynamic_cast<IndexNode *>(node->identifier)) {
+            auto arrayIdentifier = dynamic_cast<IdentifierNode *>(index->array);
+            if (!arrayIdentifier || arrayVariables.find(arrayIdentifier->name) == arrayVariables.end() ||
+                !isVisible(arrayIdentifier->name)) {
+                std::cerr << "Expected a visible array before index" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            if (auto numericIndex = dynamic_cast<NumberNode *>(index->index)) {
+                int position = numericIndex->value;
+                const std::vector<int>& values = arrayVariables.at(arrayIdentifier->name);
+                if (position < 0 || static_cast<size_t>(position) >= values.size()) {
+                    std::cerr << "Array index out of bounds" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                file << "push dword [" << arrayIdentifier->name << " + " << position * 4 << "]" << std::endl;
+            } else if (auto variableIndex = dynamic_cast<IdentifierNode *>(index->index)) {
+                auto variable = variables.find(variableIndex->name);
+                if (variable == variables.end() || !isVisible(variableIndex->name) ||
+                    stringVariables.find(variableIndex->name) != stringVariables.end()) {
+                    std::cerr << "Array index must be a visible integer variable" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                int boundsLabel = ++labelCount;
+                const std::vector<int>& values = arrayVariables.at(arrayIdentifier->name);
+                file << "mov eax, [" << variableIndex->name << "]" << std::endl;
+                file << "cmp eax, " << values.size() << std::endl;
+                file << "jae array_index_error_" << boundsLabel << std::endl;
+                file << "push dword [" << arrayIdentifier->name << " + eax * 4]" << std::endl;
+                file << "push dword fmt" << std::endl;
+                file << "call printf" << std::endl;
+                file << "jmp array_index_end_" << boundsLabel << std::endl;
+                file << "array_index_error_" << boundsLabel << ":" << std::endl;
+                file << "push dword 1" << std::endl;
+                file << "call exit" << std::endl;
+                file << "array_index_end_" << boundsLabel << ":" << std::endl;
+                return;
+            } else {
+                std::cerr << "Array print indexes must be integer literals or variables" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            file << "push dword fmt" << std::endl;
+            file << "call printf" << std::endl;
+            return;
+        }
+
         node->identifier->accept(this);
 
-        if (stringVariables.find(buffer) == stringVariables.end()){
+        if (!stack.empty()) {
+            file << "push dword " << stack.top() << std::endl;
+            file << "push dword fmt" << std::endl;
+            file << "call printf" << std::endl;
+            stack.pop();
+        } else if (stringVariables.find(buffer) == stringVariables.end()){
             file << "push dword [" << buffer << "]" << std::endl;
             file << "push dword fmt" << std::endl;
             file << "call printf" << std::endl;
@@ -341,11 +418,32 @@ public:
     void visit(DeclarationNode* node) override {
         auto it = variables.find(node->identifier->name);
 
-        if (it != variables.end()) {
+        if (it != variables.end() || arrayVariables.find(node->identifier->name) != arrayVariables.end()) {
             std::cerr << "Variable " << node->identifier->name << " already declared " << std::endl;
             std::ofstream (fileName, std::ios::trunc);
             exit(EXIT_FAILURE);
         };
+
+        if (auto array = dynamic_cast<ArrayNode *>(node->value)) {
+            std::vector<int> values;
+            std::map<std::string, int> environment;
+            for (const auto& variable : variables) {
+                if (stringVariables.find(variable.first) == stringVariables.end()) {
+                    environment[variable.first] = std::stoi(variable.second);
+                }
+            }
+            for (AstNode *value : array->values) {
+                values.push_back(evaluateExpression(value, environment));
+            }
+            if (values.empty()) {
+                std::cerr << "Arrays cannot be empty" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            arrayVariables[node->identifier->name] = values;
+            scopes.back().insert(node->identifier->name);
+            buffer.clear();
+            return;
+        }
 
         node->value->accept(this);
 
@@ -510,6 +608,42 @@ public:
     void visit(ReturnNode* /*node*/) override {
         std::cerr << "Return is only valid inside a function" << std::endl;
         exit(EXIT_FAILURE);
+    }
+
+    void visit(ArrayNode* /*node*/) override {
+        std::cerr << "Array literals are only valid in declarations" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    void visit(IndexNode* node) override {
+        auto identifier = dynamic_cast<IdentifierNode *>(node->array);
+        if (!identifier || arrayVariables.find(identifier->name) == arrayVariables.end() ||
+            !isVisible(identifier->name)) {
+            std::cerr << "Variable " << (identifier ? identifier->name : "<expression>")
+                      << " is not an array" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        node->index->accept(this);
+        int position;
+        if (!stack.empty()) {
+            position = stack.top();
+            stack.pop();
+        } else {
+            if (buffer.empty() || stringVariables.find(buffer) != stringVariables.end()) {
+                std::cerr << "Array index must be an integer" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            position = std::stoi(variables.at(buffer));
+            buffer.clear();
+        }
+
+        const std::vector<int>& values = arrayVariables.at(identifier->name);
+        if (position < 0 || static_cast<size_t>(position) >= values.size()) {
+            std::cerr << "Array index out of bounds" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        stack.push(values[position]);
     }
 
     void visit(ForLoopNode* node) override {
