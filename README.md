@@ -1,76 +1,104 @@
 # Verse Compiler
 
-## Introduction
+Verse Compiler is a small C++ compiler for the Verse language. It tokenizes
+source code, builds an AST, and emits 32-bit x86 NASM assembly.
 
-It is a C++ compiler designed to compile 
-programs written in a custom programming language 
-called Verse into 32-bit x86 assembly code.
+The compiler design notes are available in the
+[Compiler Design repository](https://github.com/sergiobriito/compiler-design).
 
-This compiler adheres to the principles of compiler design, 
-which include tokenization, constructing an 
-abstract syntax tree (AST), and generating code. 
+## Supported Features
 
-I have documented my Compiler Design analyses in the following repository:
-- [Compiler Design](https://github.com/sergiobriito/compiler-design)
+- Integer variables and string variables
+- Variable declarations with `let`
+- Assignment with `=`
+- Arithmetic operators: `+`, `-`, `*`, `/`
+- Comparisons: `==`, `!=`, `<`, `<=`, `>`, `>=`
+- `if`/`else` statements
+- `for` loops with `++` and `--`
+- Printing variables with `print(...)`
+- Integer functions with parameters, `return`, and recursive calls
+- Variables declared inside a `for` or `if` block are scoped to that block
 
-## Features
+## Requirements
 
-- **Verse Language**: A custom programming language with basics 
-features, including variable declaration, assignment, arithmetic operations, conditionals, and loops.
-- **Compiler**: Converts Verse code (.vs) into 32-bit x86 assembly code.
+On Ubuntu or Debian, install the native compiler, NASM, and the 32-bit GCC
+toolchain:
 
-## Prerequisites
-
-You need the following tools installed on your system:
-
-- C++ Compiler (e.g., g++) and NASM (Netwide Assembler):
-  - Linux:
-    ```
-    sudo apt update
-    sudo apt install g++
-    sudo apt install g++-multilib
-    sudo apt install nasm
-    ```
-
-## Installation
-
-1. Clone this repository:
+```bash
+sudo apt update
+sudo apt install g++ gcc-multilib libc6-dev-i386 nasm
 ```
+
+The 32-bit packages are required because the generated assembly is assembled
+as `elf32` and linked with `gcc -m32`.
+
+## Build
+
+Clone the repository and build the compiler:
+
+```bash
 git clone https://github.com/sergiobriito/verse-compiler.git
 cd verse-compiler
+make
 ```
-1. Build the compiler:
-```
-make 
-```
-The executable versec will be generated in the build directory.
 
-## Usage
-To compile a Verse code file (example.vs):
-```
-chmod 700 ./run.sh
+This creates the `versec` executable in the repository root.
+
+## Run
+
+The helper script compiles, assembles, links, runs, and then removes its
+temporary output files:
+
+```bash
 ./run.sh example.vs
 ```
-## Examples
 
-- Declaration of variable:
-```
-let n = 100;
-let compilerName = "versecompiler";
-```
+## Example
 
-- For loop:
-```
-let i;
-for (i=0;i<100;i++){
-print(i);
+The main example is in [example.vs](example.vs):
+
+```verse
+fn fibonacci(n){
+	if (n <= 2){
+		return 1;
+	};
+	return fibonacci(n - 2) + fibonacci(n - 1);
 };
+
+let n = fibonacci(10);
+print(n);
 ```
 
-- If:
+Run it with:
+
+```bash
+./run.sh example.vs
 ```
-let k = 100;
-if (k > 99){
-print(k);
-};
+
+Expected output:
+
+```text
+55
+```
+
+## More Examples
+
+Each focused example can be run with the same helper script:
+
+```bash
+./run.sh examples/factorial.vs
+```
+
+- [factorial.vs](examples/factorial.vs): recursion with a base case
+- [loops.vs](examples/loops.vs): `for` loops and loop-local variables
+- [conditions.vs](examples/conditions.vs): comparisons and `if`/`else`
+- [strings.vs](examples/strings.vs): string declarations and printing
+
+The compiler evaluates integer function calls while compiling, so recursive
+examples produce ordinary constant data in the generated assembly.
+
+The focused factorial example prints:
+
+```text
+120
 ```

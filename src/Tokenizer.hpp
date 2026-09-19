@@ -34,6 +34,8 @@ enum class TokenType {
     FOR = 25,
     WHILE = 26,
     PRINT = 27,
+    FN = 28,
+    RETURN = 29,
     INCVALUE = 30,
     DECVALUE = 31
 };
@@ -67,23 +69,28 @@ public:
         while (peek().has_value()) {
             if (peek().value() == '\"') {
                 consume();
-                while (peek().has_value() && std::isalnum(peek().value()) || isspace(peek().value()) || peek().value() == '\\') {
+                while (peek().has_value() &&
+                       (std::isalnum(static_cast<unsigned char>(peek().value())) ||
+                        std::isspace(static_cast<unsigned char>(peek().value())) ||
+                        peek().value() == '\\')) {
                     buffer.push_back(consume());
                 };
-                if (peek().value() != '\"') {
+                if (!peek().has_value() || peek().value() != '\"') {
                     std::cout << "Expected \" " << std::endl;
                     exit(EXIT_FAILURE);
                 };
                 consume();
                 tokens.push_back({.value = buffer, .type = TokenType::STRING});
                 buffer.clear();
-            } else if (std::isalpha(peek().value())) {
+            } else if (std::isalpha(static_cast<unsigned char>(peek().value()))) {
                 buffer.push_back(consume());
-                if (peek().has_value() && peek().value() == '+' && peek(1).value() =='+'){
+                if (peek().has_value() && peek(1).has_value() &&
+                    peek().value() == '+' && peek(1).value() == '+'){
                     buffer.push_back(consume());
                     buffer.push_back(consume());
                     tokens.push_back({.value = buffer, .type = TokenType::INCVALUE});
-                } else if(peek().has_value() && peek().value() == '-' && peek(1).value() =='-'){
+                } else if(peek().has_value() && peek(1).has_value() &&
+                          peek().value() == '-' && peek(1).value() == '-'){
                     buffer.push_back(consume());
                     buffer.push_back(consume());
                     tokens.push_back({.value = buffer, .type = TokenType::DECVALUE});
@@ -105,12 +112,16 @@ public:
                         tokens.push_back({.value = buffer, .type = TokenType::WHILE});
                     } else if (buffer == "print") {
                         tokens.push_back({.value = buffer, .type = TokenType::PRINT});
+                    } else if (buffer == "fn") {
+                        tokens.push_back({.value = buffer, .type = TokenType::FN});
+                    } else if (buffer == "return") {
+                        tokens.push_back({.value = buffer, .type = TokenType::RETURN});
                     } else {
                         tokens.push_back({.value = buffer, .type = TokenType::IDENT});
                     };
                 };
                 buffer.clear();
-            } else if (std::isdigit(peek().value())) {
+            } else if (std::isdigit(static_cast<unsigned char>(peek().value()))) {
                 buffer.push_back(consume());
                 while (peek().has_value() && std::isdigit(peek().value())) {
                     buffer.push_back(consume());
@@ -118,7 +129,7 @@ public:
 
                 tokens.push_back({.value = buffer, .type = TokenType::NUMBER});
                 buffer.clear();
-            } else if (std::isspace(peek().value())) {
+            } else if (std::isspace(static_cast<unsigned char>(peek().value()))) {
                 consume();
             } else if (peek().value() == '(') {
                 consume();
@@ -150,12 +161,15 @@ public:
             } else if (peek().value() == '/') {
                 consume();
                 tokens.push_back({.value = "/", .type = TokenType::DIVIDE});
+            } else if (peek().value() == ',') {
+                consume();
+                tokens.push_back({.value = ",", .type = TokenType::COMMA});
             } else if (peek().value() == ';') {
                 consume();
                 tokens.push_back({.type = TokenType::SEMI_COL});
             } else if (peek().value() == '=') {
                 consume();
-                if (peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '=') {
                     consume();
                     tokens.push_back({.value = "==", .type = TokenType::EQEQ});
                 } else {
@@ -163,7 +177,7 @@ public:
                 };
             } else if (peek().value() == '>') {
                 consume();
-                if (peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '=') {
                     consume();
                     tokens.push_back({.value = ">=" , .type = TokenType::GTEQ});
                 } else {
@@ -171,7 +185,7 @@ public:
                 };
             } else if (peek().value() == '<') {
                 consume();
-                if (peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '=') {
                     consume();
                     tokens.push_back({.value = "<=" , .type = TokenType::LTEQ});
                 } else {
@@ -179,7 +193,7 @@ public:
                 };
             } else if (peek().value() == '!') {
                 consume();
-                if (peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '=') {
                     consume();
                     tokens.push_back({.value = "!=" , .type = TokenType::NOTEQ});
                 } else {

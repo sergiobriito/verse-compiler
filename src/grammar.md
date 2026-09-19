@@ -1,7 +1,7 @@
 ## Grammar
 
 - `program` ::= `statement*`
-- `statement` ::= `declaration` | `assignment` | `expression` | `conditional` | `for_loop` | `print`
+- `statement` ::= `declaration` | `assignment` | `conditional` | `for_loop` | `print` | `function` | `return`
 - `declaration` ::= "`let`" `identifier` "`;`" | "`let`" `identifier`  "=" `expression` "`;`"
 - `assignment` ::= `identifier` "`=`" (`expression` | `string`) "`;`"
 - `expression` ::= `term` `(("+" | "-") term)*`
@@ -12,6 +12,11 @@
 - `if_statement` ::= "`if`" "`(`" `comparison` "`)`" "`{`" `statement*` "`}`"
 - `if_else_statement` ::= "`if`" "`(`" `comparison` "`)`" "`{`" `statement*` "`}`" "`else`" "`{`" `statement*` "`}`"
 - `print` ::= "`print`" "`(`" `expression` "`)`"
+- `function` ::= "`fn`" `identifier` "`(`" `parameters?` "`)`" "`{`" `statement*` "`}`" "`;`"?
+- `parameters` ::= `identifier` ("`,`" `identifier`)*
+- `return` ::= "`return`" `expression` "`;`"
+- `call` ::= `identifier` "`(`" `arguments?` "`)`"
+- `arguments` ::= `expression` ("`,`" `expression`)*
 - `comparison` ::= `expression` `comp_op` `expression`
 - `comp_op` ::= "`==`" | "`!=`" | "`<`" | "`<=`" | "`>`" | "`>=`"
 - `identifier` ::= `letter` `(letter | digit)*`

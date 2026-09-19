@@ -13,6 +13,9 @@ struct IfStatementNode;
 struct ForLoopNode;
 struct PrintNode;
 struct IncrementNode;
+struct FunctionNode;
+struct CallNode;
+struct ReturnNode;
 
 class Visitor {
 public:
@@ -28,6 +31,9 @@ public:
     virtual void visit(ForLoopNode* node) = 0;
     virtual void visit(PrintNode* node) = 0;
     virtual void visit(IncrementNode* node) = 0;
+    virtual void visit(FunctionNode* node) = 0;
+    virtual void visit(CallNode* node) = 0;
+    virtual void visit(ReturnNode* node) = 0;
 };
 
 #endif

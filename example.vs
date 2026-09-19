@@ -1,8 +1,9 @@
-let n = 4-2*(9-2)*2*(4-2)+5;
-let i = n + 1;
+fn fibonacci(n){
+    if (n <= 2){
+        return 1;
+    };
+    return fibonacci(n - 2) + fibonacci(n - 1);
+};
+
+let n = fibonacci(10);
 print(n);
-print(i);
-
-let compilerName = "versecompiler";
-print(compilerName);
-

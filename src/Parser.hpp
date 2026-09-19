@@ -156,6 +156,41 @@ struct PrintNode : AstNode {
     }
 };
 
+struct FunctionNode : AstNode {
+    std::string name;
+    std::vector<std::string> parameters;
+    ProgramNode *body;
+
+    FunctionNode(std::string name, std::vector<std::string> parameters, ProgramNode *body)
+            : name(std::move(name)), parameters(std::move(parameters)), body(body) {}
+
+    void accept(Visitor* visitor) override {
+        visitor->visit(this);
+    }
+};
+
+struct CallNode : AstNode {
+    std::string name;
+    std::vector<AstNode *> arguments;
+
+    CallNode(std::string name, std::vector<AstNode *> arguments)
+            : name(std::move(name)), arguments(std::move(arguments)) {}
+
+    void accept(Visitor* visitor) override {
+        visitor->visit(this);
+    }
+};
+
+struct ReturnNode : AstNode {
+    AstNode *value;
+
+    explicit ReturnNode(AstNode *value) : value(value) {}
+
+    void accept(Visitor* visitor) override {
+        visitor->visit(this);
+    }
+};
+
 class Parser {
 private:
     std::vector<Token> tokens;
@@ -242,6 +277,12 @@ public:
         } else if (peek().value().type == TokenType::PRINT) {
             consume();
             return parsePrintStatement();
+        } else if (peek().value().type == TokenType::FN) {
+            consume();
+            return parseFunctionDeclaration();
+        } else if (peek().value().type == TokenType::RETURN) {
+            consume();
+            return parseReturnStatement();
         }else {
             std::cerr << static_cast<int>(peek().value().type) << std::endl;
             std::cerr << "Invalid statement in parse statement" << std::endl;
@@ -336,6 +377,23 @@ public:
             }
         } else if (peek().value().type == TokenType::IDENT) {
             Token name = consume();
+            if (peek().has_value() && peek().value().type == TokenType::OPENPAR) {
+                consume();
+                std::vector<AstNode *> arguments;
+                if (peek().has_value() && peek().value().type != TokenType::CLOSPAR) {
+                    arguments.push_back(parseExpression());
+                    while (peek().has_value() && peek().value().type == TokenType::COMMA) {
+                        consume();
+                        arguments.push_back(parseExpression());
+                    }
+                }
+                if (!peek().has_value() || peek().value().type != TokenType::CLOSPAR) {
+                    std::cerr << "Expected ')' after function arguments" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                consume();
+                return new CallNode(name.value, arguments);
+            }
             return new IdentifierNode(name.value);
         } else if (peek().value().type == TokenType::OPENPAR) {
             consume();
@@ -492,6 +550,77 @@ public:
         return new PrintNode(identifierNode);
     };
 
+    AstNode *parseReturnStatement() {
+        AstNode *value = parseExpression();
+        if (!peek().has_value() || peek().value().type != TokenType::SEMI_COL) {
+            std::cerr << "Expected ';' after return" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume();
+        return new ReturnNode(value);
+    }
+
+    ProgramNode *parseBlock() {
+        std::vector<AstNode *> statements;
+        while (peek().has_value() && peek().value().type != TokenType::CLOSCURL) {
+            statements.push_back(parseStatement());
+        }
+        if (!peek().has_value()) {
+            std::cerr << "Expected '}'" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume();
+        return new ProgramNode(statements);
+    }
+
+    AstNode *parseFunctionDeclaration() {
+        if (!peek().has_value() || peek().value().type != TokenType::IDENT) {
+            std::cerr << "Expected a function name" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        std::string name = consume().value;
+
+        if (!peek().has_value() || peek().value().type != TokenType::OPENPAR) {
+            std::cerr << "Expected '(' after function name" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume();
+
+        std::vector<std::string> parameters;
+        if (peek().has_value() && peek().value().type != TokenType::CLOSPAR) {
+            if (peek().value().type != TokenType::IDENT) {
+                std::cerr << "Expected a parameter name" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            parameters.push_back(consume().value);
+            while (peek().has_value() && peek().value().type == TokenType::COMMA) {
+                consume();
+                if (!peek().has_value() || peek().value().type != TokenType::IDENT) {
+                    std::cerr << "Expected a parameter name" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                parameters.push_back(consume().value);
+            }
+        }
+
+        if (!peek().has_value() || peek().value().type != TokenType::CLOSPAR) {
+            std::cerr << "Expected ')' after parameters" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume();
+
+        if (!peek().has_value() || peek().value().type != TokenType::OPENCURL) {
+            std::cerr << "Expected '{' before function body" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume();
+        ProgramNode *body = parseBlock();
+        if (peek().has_value() && peek().value().type == TokenType::SEMI_COL) {
+            consume();
+        }
+        return new FunctionNode(name, parameters, body);
+    }
+
     AstNode *parseLoopProgram() {
         std::vector<AstNode *> statements;
         while (peek().has_value() && peek().value().type != TokenType::CLOSCURL) {
@@ -523,7 +652,16 @@ public:
         }
         consume();
 
-        AstNode* initialization = parseAssignment(consume());
+        AstNode* initialization;
+        if (peek().has_value() && peek().value().type == TokenType::LET) {
+            consume();
+            initialization = parseDeclaration();
+        } else if (peek().has_value() && peek().value().type == TokenType::IDENT) {
+            initialization = parseAssignment(consume());
+        } else {
+            std::cerr << "Expected a declaration or assignment in 'for'" << std::endl;
+            exit(EXIT_FAILURE);
+        }
         AstNode* condition = parseComparison();
 
         if (!peek().has_value() || peek().value().type != TokenType::SEMI_COL) {

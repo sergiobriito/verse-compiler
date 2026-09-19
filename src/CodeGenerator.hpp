@@ -4,18 +4,165 @@
 #include <vector>
 #include <stack>
 #include <map>
+#include <set>
 #include "Visitor.hpp"
 #include "Parser.hpp"
 
 class CodeGenerator : public Visitor {
 private:
     std::map<std::string, std::string> variables;
+    std::map<std::string, FunctionNode *> functions;
+    std::set<std::string> stringVariables;
+    std::vector<std::set<std::string>> scopes;
     std::stack<int> stack {};
     std::string buffer {};
     std::string labelBuffer {};
     std::string fileName {};
     std::ofstream file {};
     int labelCount {};
+
+    bool isVisible(const std::string& name) const {
+        for (auto scope = scopes.rbegin(); scope != scopes.rend(); ++scope) {
+            if (scope->find(name) != scope->end()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void enterScope() {
+        scopes.emplace_back();
+    }
+
+    void leaveScope() {
+        scopes.pop_back();
+    }
+
+    struct EvaluationResult {
+        bool returned;
+        int value;
+    };
+
+    int evaluateExpression(AstNode *node, std::map<std::string, int>& environment) {
+        if (auto number = dynamic_cast<NumberNode *>(node)) {
+            return number->value;
+        }
+        if (auto identifier = dynamic_cast<IdentifierNode *>(node)) {
+            auto value = environment.find(identifier->name);
+            if (value == environment.end()) {
+                std::cerr << "Variable " << identifier->name << " not declared in function" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            return value->second;
+        }
+        if (auto binary = dynamic_cast<BinaryOpNode *>(node)) {
+            int left = evaluateExpression(binary->left, environment);
+            int right = evaluateExpression(binary->right, environment);
+            if (binary->op == "+") return left + right;
+            if (binary->op == "-") return right - left;
+            if (binary->op == "*") return left * right;
+            if (binary->op == "/") {
+                if (left == 0) {
+                    std::cerr << "Division by zero" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                return right / left;
+            }
+        }
+        if (auto comparison = dynamic_cast<ComparisonNode *>(node)) {
+            int left = evaluateExpression(comparison->left, environment);
+            int right = evaluateExpression(comparison->right, environment);
+            if (comparison->op == "==") return left == right;
+            if (comparison->op == "!=") return left != right;
+            if (comparison->op == "<") return left < right;
+            if (comparison->op == "<=") return left <= right;
+            if (comparison->op == ">") return left > right;
+            if (comparison->op == ">=") return left >= right;
+        }
+        if (auto call = dynamic_cast<CallNode *>(node)) {
+            std::vector<int> arguments;
+            for (AstNode *argument : call->arguments) {
+                arguments.push_back(evaluateExpression(argument, environment));
+            }
+            return evaluateFunction(call->name, arguments);
+        }
+
+        std::cerr << "Unsupported expression in function" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    EvaluationResult evaluateStatement(AstNode *node, std::map<std::string, int>& environment) {
+        if (auto declaration = dynamic_cast<DeclarationNode *>(node)) {
+            environment[declaration->identifier->name] = evaluateExpression(declaration->value, environment);
+            return {false, 0};
+        }
+        if (auto assignment = dynamic_cast<AssignmentNode *>(node)) {
+            if (environment.find(assignment->identifier->name) == environment.end()) {
+                std::cerr << "Variable " << assignment->identifier->name << " not declared in function" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            environment[assignment->identifier->name] = evaluateExpression(assignment->value, environment);
+            return {false, 0};
+        }
+        if (auto returnNode = dynamic_cast<ReturnNode *>(node)) {
+            return {true, evaluateExpression(returnNode->value, environment)};
+        }
+        if (auto conditional = dynamic_cast<IfStatementNode *>(node)) {
+            int condition = evaluateExpression(conditional->condition, environment);
+            if (condition) return evaluateStatements(static_cast<ProgramNode *>(conditional->trueBody), environment);
+            if (conditional->falseBody) return evaluateStatements(static_cast<ProgramNode *>(conditional->falseBody), environment);
+            return {false, 0};
+        }
+        if (auto loop = dynamic_cast<ForLoopNode *>(node)) {
+            evaluateStatement(loop->initialization, environment);
+            while (evaluateExpression(loop->condition, environment)) {
+                EvaluationResult result = loop->body
+                        ? evaluateStatements(static_cast<ProgramNode *>(loop->body), environment)
+                        : EvaluationResult{false, 0};
+                if (result.returned) return result;
+                if (auto increment = dynamic_cast<IncrementNode *>(loop->increment)) {
+                    auto identifier = dynamic_cast<IdentifierNode *>(increment->identifier);
+                    int &value = environment[identifier->name];
+                    value += increment->value == "++" ? 1 : -1;
+                }
+            }
+            return {false, 0};
+        }
+
+        std::cerr << "Unsupported statement in function" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    EvaluationResult evaluateStatements(ProgramNode *program, std::map<std::string, int>& environment) {
+        for (AstNode *statement : program->statements) {
+            EvaluationResult result = evaluateStatement(statement, environment);
+            if (result.returned) return result;
+        }
+        return {false, 0};
+    }
+
+    int evaluateFunction(const std::string& name, const std::vector<int>& arguments) {
+        auto function = functions.find(name);
+        if (function == functions.end()) {
+            std::cerr << "Function " << name << " not declared" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        if (function->second->parameters.size() != arguments.size()) {
+            std::cerr << "Wrong number of arguments for function " << name << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        std::map<std::string, int> environment;
+        for (size_t index = 0; index < arguments.size(); ++index) {
+            environment[function->second->parameters[index]] = arguments[index];
+        }
+        EvaluationResult result = evaluateStatements(function->second->body, environment);
+        if (!result.returned) {
+            std::cerr << "Function " << name << " did not return a value" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        return result.value;
+    }
 
 public:
     std::string replaceSubstring(std::string originalString, std::string searchString, std::string replacementString) {
@@ -28,8 +175,17 @@ public:
     }
 
     bool isAllDigits(std::string str) {
-        for (char c : str) {
-            if (!std::isdigit(c)) {
+        if (str.empty()) {
+            return false;
+        }
+
+        size_t start = str.front() == '-' ? 1 : 0;
+        if (start == str.size()) {
+            return false;
+        }
+
+        for (size_t index = start; index < str.size(); ++index) {
+            if (!std::isdigit(static_cast<unsigned char>(str[index]))) {
                 return false;
             }
         }
@@ -46,6 +202,9 @@ public:
     }
 
     void generateCode(AstNode* node) {
+        scopes.clear();
+        enterScope();
+
         file << "section .text" << std::endl;
         file << "global _start" << std::endl;
         file << "extern printf" << std::endl;
@@ -55,7 +214,8 @@ public:
 
         node->accept(this);
 
-        file << std::endl << "call exit" << std::endl;
+        file << std::endl << "push dword 0" << std::endl;
+        file << "call exit" << std::endl;
 
         genDataSection();
         file.close();
@@ -68,7 +228,7 @@ public:
                 if (variable.first.find("_len") != std::string::npos){
                     file << variable.first << variable.second  << std::endl;
                 }else{
-                    if (isAllDigits(variable.second)){
+                    if (stringVariables.find(variable.first) == stringVariables.end()){
                         file << variable.first << " dd " << variable.second  << std::endl;
                     }else{
                         file << variable.first << " db " << "\"" << variable.second << "\"" << ",10,0" << std::endl;
@@ -83,7 +243,18 @@ public:
 
     void visit(ProgramNode* node) override {
         for (AstNode* statement : node->statements) {
-            statement->accept(this);
+            if (auto function = dynamic_cast<FunctionNode *>(statement)) {
+                if (functions.find(function->name) != functions.end()) {
+                    std::cerr << "Function " << function->name << " already declared" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                functions[function->name] = function;
+            }
+        }
+        for (AstNode* statement : node->statements) {
+            if (dynamic_cast<FunctionNode *>(statement) == nullptr) {
+                statement->accept(this);
+            }
         }
     }
 
@@ -144,7 +315,7 @@ public:
 
     void visit(IdentifierNode* node) override {
         auto it = variables.find(node->name);
-        if (it == variables.end()) {
+        if (it == variables.end() || !isVisible(node->name)) {
             std::cerr << "Variable " << node->name << " not declared " << std::endl;
             std::ofstream (fileName, std::ios::trunc);
             exit(EXIT_FAILURE);
@@ -155,7 +326,7 @@ public:
     void visit(PrintNode* node) override {
         node->identifier->accept(this);
 
-        if (isAllDigits(variables.at(buffer))){
+        if (stringVariables.find(buffer) == stringVariables.end()){
             file << "push dword [" << buffer << "]" << std::endl;
             file << "push dword fmt" << std::endl;
             file << "call printf" << std::endl;
@@ -184,7 +355,10 @@ public:
         }else{
             addVariable(node->identifier->name + "_len", " equ $ - " + node->identifier->name);
             addVariable(node->identifier->name, buffer);
+            stringVariables.insert(node->identifier->name);
         };
+
+        scopes.back().insert(node->identifier->name);
 
         buffer.clear();
     }
@@ -192,14 +366,7 @@ public:
     void visit(AssignmentNode* node) override {
         node->value->accept(this);
 
-        bool varExists = false;
-        for (auto& it : variables){
-            if (it.first == node->identifier->name) {
-                varExists = true;
-            };
-        };
-
-        if (!varExists){
+        if (!isVisible(node->identifier->name)) {
             std::cerr << "Variable " << node->identifier->name << " not declared " << std::endl;
             std::ofstream (fileName, std::ios::trunc);
             exit(EXIT_FAILURE);
@@ -278,7 +445,8 @@ public:
 
     void visit(IfStatementNode* node) override {
         int label = ++labelCount;
-        labelBuffer.append("if_label_"+std::to_string(label));
+        std::string previousLabel = labelBuffer;
+        labelBuffer = "if_label_" + std::to_string(label);
         node->condition->accept(this);
 
         if (!node->falseBody) {
@@ -288,19 +456,23 @@ public:
         };
 
         file << std::endl << "if_label_" << label << ":" << std::endl;
+        enterScope();
         node->trueBody->accept(this);
+        leaveScope();
         file << "jmp " << "end_if_label_" << label << std::endl;
         file << std::endl;
 
         if (node->falseBody) {
             file << "else_label_" << label << ":" << std::endl;
+            enterScope();
             node->falseBody->accept(this);
+            leaveScope();
             file << "jmp " << "end_if_label_" << label << std::endl;
             file << std::endl;
         }
 
         file << std::endl << "end_if_label_" << label << ":" << std::endl;
-        labelBuffer.clear();
+        labelBuffer = previousLabel;
     }
 
     void visit(IncrementNode* node) override {
@@ -314,15 +486,47 @@ public:
         };
     }
 
+    void visit(FunctionNode* /*node*/) override {}
+
+    void visit(CallNode* node) override {
+        std::vector<int> arguments;
+        for (AstNode *argument : node->arguments) {
+            argument->accept(this);
+            if (stack.empty()) {
+                if (buffer.empty() || stringVariables.find(buffer) != stringVariables.end()) {
+                    std::cerr << "Function arguments must be integers" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                arguments.push_back(std::stoi(variables.at(buffer)));
+                buffer.clear();
+                continue;
+            }
+            arguments.push_back(stack.top());
+            stack.pop();
+        }
+        stack.push(evaluateFunction(node->name, arguments));
+    }
+
+    void visit(ReturnNode* /*node*/) override {
+        std::cerr << "Return is only valid inside a function" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
     void visit(ForLoopNode* node) override {
         int label = ++labelCount;
-        labelBuffer.append("for_loop_label_"+std::to_string(label));
+        std::string previousLabel = labelBuffer;
+        labelBuffer = "for_loop_label_" + std::to_string(label);
 
+        enterScope();
         node->initialization->accept(this);
         file << std::endl;
         file << "for_loop_label_" << label << ":" << std::endl;
 
-        node->body->accept(this);
+        enterScope();
+        if (node->body) {
+            node->body->accept(this);
+        }
+        leaveScope();
         node->increment->accept(this);
         node->condition->accept(this);
 
@@ -330,7 +534,8 @@ public:
         file << std::endl;
         file << "end_for_loop_" << label << ":" << std::endl;
 
-        labelBuffer.clear();
+        leaveScope();
+        labelBuffer = previousLabel;
     }
 
 };
