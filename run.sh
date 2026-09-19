@@ -29,12 +29,12 @@ if ! ./versec "$source_file"; then
 fi
 
 # Assemble the output
-if ! nasm -f elf32 out.asm -o out.o; then
+if ! nasm -f elf64 out.asm -o out.o; then
   exit 1
 fi
 
 # Link the file to create the executable
-if ! gcc -m32 -o out out.o -lm -nostartfiles -no-pie; then
+if ! gcc -o out out.o -no-pie; then
   exit 1
 fi
 

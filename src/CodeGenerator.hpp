@@ -221,16 +221,18 @@ public:
         enterScope();
 
         file << "section .text" << std::endl;
-        file << "global _start" << std::endl;
+        file << "global main" << std::endl;
         file << "extern printf" << std::endl;
         file << "extern exit" << std::endl;
-        file << "_start:" << std::endl;
+        file << "main:" << std::endl;
+        file << "sub rsp, 8" << std::endl;
         file << std::endl;
 
         node->accept(this);
 
-        file << std::endl << "push dword 0" << std::endl;
-        file << "call exit" << std::endl;
+        file << std::endl << "add rsp, 8" << std::endl;
+        file << "xor eax, eax" << std::endl;
+        file << "ret" << std::endl;
 
         genDataSection();
         file.close();
@@ -264,6 +266,7 @@ public:
             file << std::endl;
         }
         file << "fmt db \"%d\", 10, 0" << std::endl;
+        file << std::endl << "section .note.GNU-stack noalloc noexec nowrite progbits" << std::endl;
     }
 
     void visit(ProgramNode* node) override {
@@ -364,7 +367,7 @@ public:
                     std::cerr << "Array index out of bounds" << std::endl;
                     exit(EXIT_FAILURE);
                 }
-                file << "push dword [" << arrayIdentifier->name << " + " << position * 4 << "]" << std::endl;
+                file << "mov esi, [rel " << arrayIdentifier->name << " + " << position * 4 << "]" << std::endl;
             } else if (auto variableIndex = dynamic_cast<IdentifierNode *>(index->index)) {
                 auto variable = variables.find(variableIndex->name);
                 if (variable == variables.end() || !isVisible(variableIndex->name) ||
@@ -374,15 +377,17 @@ public:
                 }
                 int boundsLabel = ++labelCount;
                 const std::vector<int>& values = arrayVariables.at(arrayIdentifier->name);
-                file << "mov eax, [" << variableIndex->name << "]" << std::endl;
+                file << "mov eax, [rel " << variableIndex->name << "]" << std::endl;
                 file << "cmp eax, " << values.size() << std::endl;
                 file << "jae array_index_error_" << boundsLabel << std::endl;
-                file << "push dword [" << arrayIdentifier->name << " + eax * 4]" << std::endl;
-                file << "push dword fmt" << std::endl;
+                file << "lea rdx, [rel " << arrayIdentifier->name << "]" << std::endl;
+                file << "mov esi, [rdx + rax * 4]" << std::endl;
+                file << "lea rdi, [rel fmt]" << std::endl;
+                file << "xor eax, eax" << std::endl;
                 file << "call printf" << std::endl;
                 file << "jmp array_index_end_" << boundsLabel << std::endl;
                 file << "array_index_error_" << boundsLabel << ":" << std::endl;
-                file << "push dword 1" << std::endl;
+                file << "mov edi, 1" << std::endl;
                 file << "call exit" << std::endl;
                 file << "array_index_end_" << boundsLabel << ":" << std::endl;
                 return;
@@ -391,7 +396,8 @@ public:
                 exit(EXIT_FAILURE);
             }
 
-            file << "push dword fmt" << std::endl;
+            file << "lea rdi, [rel fmt]" << std::endl;
+            file << "xor eax, eax" << std::endl;
             file << "call printf" << std::endl;
             return;
         }
@@ -399,16 +405,19 @@ public:
         node->identifier->accept(this);
 
         if (!stack.empty()) {
-            file << "push dword " << stack.top() << std::endl;
-            file << "push dword fmt" << std::endl;
+            file << "mov esi, " << stack.top() << std::endl;
+            file << "lea rdi, [rel fmt]" << std::endl;
+            file << "xor eax, eax" << std::endl;
             file << "call printf" << std::endl;
             stack.pop();
         } else if (stringVariables.find(buffer) == stringVariables.end()){
-            file << "push dword [" << buffer << "]" << std::endl;
-            file << "push dword fmt" << std::endl;
+            file << "mov esi, [rel " << buffer << "]" << std::endl;
+            file << "lea rdi, [rel fmt]" << std::endl;
+            file << "xor eax, eax" << std::endl;
             file << "call printf" << std::endl;
         }else{
-            file << "push dword " << buffer << "" << std::endl;
+            file << "lea rdi, [rel " << buffer << "]" << std::endl;
+            file << "xor eax, eax" << std::endl;
             file << "call printf" << std::endl;
         };
 
@@ -471,7 +480,7 @@ public:
         };
 
         if (!stack.empty()){
-            file << "mov dword [" << node->identifier->name << "]," << stack.top() << std::endl;
+            file << "mov dword [rel " << node->identifier->name << "]," << stack.top() << std::endl;
             stack.pop();
         }else{
             std::cerr << "Cant reassign String" << std::endl;
@@ -508,13 +517,13 @@ public:
         if (isAllDigits(leftOp)){
             file << "mov eax, " << leftOp << "" << std::endl;
         }else{
-            file << "mov eax, [" << leftOp << "]" << std::endl;
+            file << "mov eax, [rel " << leftOp << "]" << std::endl;
         };
 
         if (isAllDigits(rightOp)){
             file << "mov ebx, " << rightOp << "" << std::endl;
         }else{
-            file << "mov ebx, [" << rightOp << "]" << std::endl;
+            file << "mov ebx, [rel " << rightOp << "]" << std::endl;
         };
 
         file << "cmp eax, ebx" << std::endl;
@@ -578,9 +587,9 @@ public:
         std::string id = buffer;
         buffer.clear();
         if (node->value == "++"){
-            file << "add dword ["<< id << "], 1" << std::endl;
+            file << "add dword [rel "<< id << "], 1" << std::endl;
         }else{
-            file << "sub dword ["<< id << "], 1" << std::endl;
+            file << "sub dword [rel "<< id << "], 1" << std::endl;
         };
     }
 

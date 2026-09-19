@@ -1,7 +1,7 @@
 # Verse Compiler
 
 Verse Compiler is a small C++ compiler for the Verse language. It tokenizes
-source code, builds an AST, and emits 32-bit x86 NASM assembly.
+source code, builds an AST, and emits x86-64 NASM assembly.
 
 The compiler design notes are available in the
 [Compiler Design repository](https://github.com/sergiobriito/compiler-design).
@@ -22,16 +22,14 @@ The compiler design notes are available in the
 
 ## Requirements
 
-On Ubuntu or Debian, install the native compiler, NASM, and the 32-bit GCC
-toolchain:
+On Ubuntu or Debian, install the native compiler, NASM, and GCC:
 
 ```bash
 sudo apt update
-sudo apt install g++ gcc-multilib libc6-dev-i386 nasm
+sudo apt install g++ nasm
 ```
 
-The 32-bit packages are required because the generated assembly is assembled
-as `elf32` and linked with `gcc -m32`.
+The generated assembly targets native x86-64 Linux.
 
 ## Build
 
