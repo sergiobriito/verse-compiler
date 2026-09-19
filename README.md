@@ -82,22 +82,6 @@ Expected output:
 55
 ```
 
-## Dynamic Programming Example
-
-[examples/fibonacci-dp.vs](examples/fibonacci-dp.vs) computes Fibonacci
-iteratively with rolling state. It uses $O(n)$ time and $O(1)$ space without
-recursion or array element assignment.
-
-```bash
-./run.sh examples/fibonacci-dp.vs
-```
-
-Expected output:
-
-```text
-55
-```
-
 ## Arrays
 
 Arrays contain integers and use zero-based indexing:
@@ -120,6 +104,5 @@ Expected output:
 20
 ```
 
-Array indexes must be valid integers. Out-of-bounds access is reported by the
-compiler. Array values are currently compile-time data; array element
-assignment and arrays of strings are not supported yet.
+Array indexes must be valid integers. 
+Out-of-bounds access is reported by the compiler.
